@@ -42,6 +42,8 @@ async function addItem() {
         return;
     }
 
+    console.log("Adding item:", { upc, quantity }); // Log data being sent
+
     try {
         const { data, error } = await supabase
             .from('items')
@@ -58,6 +60,7 @@ async function addItem() {
         console.error('Error adding item:', error);
     }
 }
+
 
 // Function to process the uploaded CSV file
 async function processCSV(event) {
@@ -90,6 +93,8 @@ async function bulkUpdate(data) {
         quantity: parseInt(row.Qty, 10)
     }));
 
+    console.log('Updating these items:', updates); // Log updates
+
     for (let i = 0; i < updates.length; i++) {
         const update = updates[i];
         try {
@@ -114,6 +119,7 @@ async function bulkUpdate(data) {
     alert('CSV data processed successfully!');
     fetchItems(); // Refresh the items list
 }
+
 
 
 // Attach event listeners
