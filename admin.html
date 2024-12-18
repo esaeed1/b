@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin and Customer Pages</title>
+</head>
+<body>
+
+<div class="admin-container" id="admin-container">
+    <h1>Admin Page 33</h1>
+    <div>
+        <label for="upc">UPC Code:</label>
+        <input type="text" id="upc" placeholder="Enter UPC Code">
+        <label for="quantity">Quantity:</label>
+        <input type="number" id="quantity" placeholder="Enter Quantity">
+        <button id="add-item-btn">Add Item</button> <!-- Updated button to use id -->
+    </div>
+
+    <h2>Items</h2>
+    <div id="admin-items"></div>
+
+    <!-- Button to download items as JSON -->
+    <button onclick="downloadItems()">Download Items as JSON</button>
+</div>
+
+<!-- Add Supabase client script -->
+<script type="module" src="script2.js"></script> <!-- External JavaScript file -->
+
+</body>
+</html>
