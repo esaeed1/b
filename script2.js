@@ -82,35 +82,38 @@ async function processCSV(event) {
 }
 
 // Function to bulk update the database from CSV data
+// Function to bulk update the database with delay
 async function bulkUpdate(data) {
-    try {
-        for (const row of data) {
-            const { UPC, Qty } = row;
+    const updates = data.map(row => ({
+        upc: row.UPC,
+        quantity: parseInt(row.Qty, 10)
+    }));
 
-            if (!UPC || !Qty) {
-                console.warn('Skipping invalid row:', row);
-                continue;
-            }
-
-            const { data: updatedData, error } = await supabase
+    for (let i = 0; i < updates.length; i++) {
+        const update = updates[i];
+        try {
+            const { data, error } = await supabase
                 .from('items')
-                .update({ quantity: parseInt(Qty, 10) })
-                .eq('upc', UPC);
+                .update({ quantity: update.quantity })
+                .eq('upc', update.upc);
 
             if (error) {
-                console.error(`Error updating item with UPC ${UPC}:`, error);
+                console.error(`Error updating item with UPC ${update.upc}:`, error);
             } else {
-                console.log(`Updated item with UPC ${UPC}`);
+                console.log(`Successfully updated item with UPC ${update.upc}`);
             }
+        } catch (error) {
+            console.error(`Unexpected error for UPC ${update.upc}:`, error);
         }
 
-        alert('CSV data processed successfully!');
-        fetchItems(); // Refresh items
-    } catch (error) {
-        console.error('Error during bulk update:', error);
-        alert('Failed to process CSV data.');
+        // Add a 1-second delay between requests
+        await new Promise(resolve => setTimeout(resolve, 1000));
     }
+
+    alert('CSV data processed successfully!');
+    fetchItems(); // Refresh the items list
 }
+
 
 // Attach event listeners
 document.getElementById('add-item-btn').addEventListener('click', addItem);
