@@ -1,163 +1,65 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js';
 
 const SUPABASE_URL = 'https://gmcmakoecwxkgtabkjwz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtY21ha29lY3d4a2d0YWJrand6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ0ODkwMDUsImV4cCI6MjA1MDA2NTAwNX0.Vlik45ieDFUC0s5jaMlL_IQZ_iotb9JOqOySnJMT4aU';
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Function to fetch and display items from Supabase
-async function fetchItems() {
-    console.log("Fetching items...");
-    try {
-        const { data, error } = await supabase.from('items').select('*');
-        if (error) {
-            console.error('Supabase error:', error);
-            return;
-        }
-        console.log('Fetched items:', data);
-        const container = document.getElementById('admin-items');
-        container.innerHTML = ''; // Clear existing items
-
-        data.forEach(item => {
-            const div = document.createElement('div');
-            div.innerHTML = `
-                <img src="${item.img}" alt="${item.name}" style="max-width: 100px;">
-                <p><strong><a href="${item.link}" target="_blank">${item.name}</a></strong></p>
-                <p>UPC: ${item.upc}</p>
-                <p>Quantity: <input type="number" value="${item.quantity}" onchange="updateQuantity(${item.id}, this.value)"></p>
-                <button onclick="deleteItem(${item.id})">Delete Item</button>
-            `;
-            container.appendChild(div);
-        });
-    } catch (err) {
-        console.error('Fetch error:', err);
-    }
-}
-
-// Function to add a new item to Supabase
-async function addItem() {
-    console.log("addItem function called");
-
-    const upc = document.getElementById('upc').value;
-    const quantity = document.getElementById('quantity').value;
-
-    if (!upc || !quantity) {
-        alert('Please enter UPC code and quantity.');
+// Function to process CSV file
+async function processCSV(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        alert('Please select a CSV file.');
         return;
     }
 
-    // Fetch item data based on UPC
-    const itemData = await getItemData(upc);
-    console.log("Item data fetched:", itemData);
-
-    // Save to Supabase
-    try {
-        const { data, error } = await supabase
-            .from('items')
-            .insert([
-                {
-                    name: itemData.name,
-                    upc: upc,
-                    quantity: parseInt(quantity, 10),
-                    img: itemData.img,
-                    link: itemData.link
-                }
-            ]);
-
-        if (error) {
-            console.error('Error adding item:', error);
-        } else {
-            alert('Item added successfully');
-            fetchItems(); // Refresh items list after adding
+    // Parse the CSV file
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async function (results) {
+            console.log('Parsed CSV data:', results.data);
+            await bulkUpdate(results.data);
+        },
+        error: function (error) {
+            console.error('Error parsing CSV:', error);
+            alert('Error reading CSV file.');
         }
-    } catch (error) {
-        console.error("Error adding to Supabase:", error);
-    }
+    });
 }
 
-// Function to fetch item data using the UPC (example placeholder)
-async function getItemData(upc) {
-    const url = `https://www.homedepot.com/s/${upc}`;
+// Function to bulk update the database
+async function bulkUpdate(data) {
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        const updates = data.map(row => ({
+            upc: row.UPC,
+            quantity: parseInt(row.Qty, 10)
+        }));
 
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+        // Update items in Supabase
+        for (const update of updates) {
+            const { data, error } = await supabase
+                .from('items')
+                .update({ quantity: update.quantity })
+                .eq('upc', update.upc);
 
-        const metaTag = doc.querySelector('meta[property="og:title"]');
-        const titleTag = doc.querySelector('title');
-        const title = metaTag ? metaTag.getAttribute('content') : titleTag ? titleTag.textContent.trim() : 'Title not found';
-        const imgTag = doc.querySelector('img');
-        const img = imgTag ? imgTag.getAttribute('src') : null;
-
-        return {
-            name: title,
-            img: img,
-            link: url
-        };
-    } catch (error) {
-        console.error('Error fetching item data:', error);
-        return { name: 'Error fetching data', img: null, link: url };
-    }
-}
-
-// Function to update item quantity in Supabase
-async function updateQuantity(itemId, newQuantity) {
-    console.log(`Updating quantity for item ID: ${itemId}`);
-    try {
-        const { data, error } = await supabase
-            .from('items')
-            .update({ quantity: parseInt(newQuantity, 10) })
-            .eq('id', itemId);
-
-        if (error) {
-            console.error('Error updating quantity:', error);
-        } else {
-            alert('Quantity updated');
+            if (error) {
+                console.error(`Error updating item with UPC ${update.upc}:`, error);
+            } else {
+                console.log(`Updated item with UPC ${update.upc}`);
+            }
         }
+
+        alert('CSV data processed successfully!');
+        fetchItems(); // Refresh the items list
     } catch (error) {
-        console.error("Error updating quantity:", error);
+        console.error('Error processing bulk update:', error);
+        alert('Failed to process CSV data.');
     }
 }
 
-// Function to delete an item from Supabase
-async function deleteItem(itemId) {
-    console.log(`Deleting item with ID: ${itemId}`);
-    try {
-        const { data, error } = await supabase
-            .from('items')
-            .delete()
-            .eq('id', itemId);
-
-        if (error) {
-            console.error('Error deleting item:', error);
-        } else {
-            alert('Item deleted');
-            fetchItems(); // Refresh items list after deletion
-        }
-    } catch (error) {
-        console.error("Error deleting item:", error);
-    }
-}
-
-// Function to download items as JSON (optional feature)
-function downloadItems() {
-    const items = loadFromCookies(); // Replace with actual logic
-    const jsonData = JSON.stringify(items, null, 2);
-    const blob = new Blob([jsonData], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'items.json';
-    link.click();
-}
-
-// Load items on page load
-window.onload = function() {
-    // Initialize addItem button click event listener
-    document.getElementById('add-item-btn').addEventListener('click', addItem);
-
-    // Fetch the items from Supabase
-    fetchItems();
-}
+// Attach event listeners
+document.getElementById('csv-upload').addEventListener('change', processCSV);
+document.getElementById('upload-csv-btn').addEventListener('click', () => {
+    document.getElementById('csv-upload').click();
+});
