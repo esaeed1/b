@@ -27,7 +27,6 @@ async function processCSV(event) {
         }
     });
 }
-
 // Function to bulk update the database
 async function bulkUpdate(data) {
     try {
